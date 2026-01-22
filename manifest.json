@@ -1,0 +1,20 @@
+{
+  "name": "Kotha Koli",
+  "short_name": "KothaKoli",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#E91E63",
+  "icons": [
+    {
+      "src": "https://ui-avatars.com/api/?name=KK&background=E91E63&color=fff&size=192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://ui-avatars.com/api/?name=KK&background=E91E63&color=fff&size=512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

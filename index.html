@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kotha Koli</title>
+    
+    <!-- PWA Manifest & Meta -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#E91E63">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;600&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #E91E63;
+            --primary-dark: #c2185b;
+            --background-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --bubble-bg-me: #E91E63;
+            --bubble-bg-other: #2c2c2c;
+            --nav-height: 60px;
+            --header-height: 60px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
+        body {
+            font-family: 'Poppins', 'Hind Siliguri', sans-serif;
+            background-color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: var(--text-color);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Mobile Container */
+        #app-container {
+            width: 100%;
+            max-width: 400px;
+            height: 100%;
+            background-color: var(--background-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Common UI Elements */
+        button { cursor: pointer; border: none; outline: none; font-family: inherit; }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            width: 100%;
+            transition: 0.2s;
+        }
+        .btn-primary:active { background: var(--primary-dark); transform: scale(0.98); }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            background: var(--container-bg);
+            border: 1px solid #333;
+            color: white;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        input:focus { border-color: var(--primary-color); outline: none; }
+
+        /* Screens */
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--background-color);
+            display: none;
+            flex-direction: column;
+            z-index: 10;
+        }
+        .screen.active { display: flex; }
+
+        /* Auth Screen */
+        #auth-screen { justify-content: center; padding: 30px; text-align: center; }
+        .logo { font-size: 2.5rem; color: var(--primary-color); margin-bottom: 10px; }
+        .auth-toggle { margin-top: 15px; color: var(--primary-color); cursor: pointer; font-size: 0.9rem; }
+
+        /* Setup Screen */
+        #setup-screen { padding: 30px; justify-content: center; align-items: center; }
+        .profile-upload {
+            width: 100px; height: 100px; border-radius: 50%;
+            background: var(--container-bg);
+            border: 2px dashed var(--primary-color);
+            display: flex; justify-content: center; align-items: center;
+            margin-bottom: 20px; overflow: hidden; position: relative;
+        }
+        .profile-upload img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-upload input { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+
+        /* Main App Layout */
+        header {
+            height: var(--header-height);
+            background: var(--container-bg);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 20;
+        }
+        .header-title { font-weight: 600; font-size: 1.2rem; }
+        .user-avatar-small {
+            width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid var(--primary-color);
+        }
+
+        /* Content Area */
+        #main-content { flex: 1; overflow-y: auto; position: relative; }
+
+        /* Tabs */
+        .tab-content { display: none; padding: 10px; }
+        .tab-content.active { display: block; }
+        
+        .list-item {
+            display: flex; align-items: center;
+            padding: 12px;
+            background: var(--container-bg);
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .list-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; object-fit: cover; }
+        .list-info { flex: 1; }
+        .list-name { font-weight: 600; font-size: 1rem; }
+        .list-sub { font-size: 0.8rem; color: var(--text-muted); }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; margin-right: 5px;}
+        .status-dot.online { background: #00e676; }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            height: var(--nav-height);
+            background: var(--container-bg);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #333;
+            z-index: 20;
+        }
+        .nav-item { color: var(--text-muted); font-size: 1.2rem; cursor: pointer; position: relative; }
+        .nav-item.active { color: var(--primary-color); }
+        .badge {
+            position: absolute; top: -5px; right: -5px;
+            background: var(--primary-color); color: white;
+            font-size: 0.6rem; padding: 2px 5px; border-radius: 10px;
+        }
+
+        /* Chat View */
+        #chat-view { z-index: 30; background: var(--background-color); transform: translateX(100%); transition: transform 0.3s; }
+        #chat-view.open { transform: translateX(0); }
+        .chat-header { display: flex; align-items: center; padding: 0 10px; height: 60px; background: var(--container-bg); }
+        .back-btn { margin-right: 10px; font-size: 1.2rem; padding: 10px; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        
+        .message { 
+            max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 0.9rem; word-wrap: break-word; position: relative; 
+            user-select: none; -webkit-user-select: none; /* For double tap */
+        }
+        .msg-me { align-self: flex-end; background: var(--bubble-bg-me); border-bottom-right-radius: 4px; }
+        .msg-other { align-self: flex-start; background: var(--bubble-bg-other); border-bottom-left-radius: 4px; }
+        .msg-time { font-size: 0.65rem; opacity: 0.7; margin-top: 4px; display: block; text-align: right; }
+        
+        .msg-image { width: 100%; max-width: 200px; border-radius: 10px; display: block; margin-bottom: 5px; cursor: pointer; }
+        
+        .reaction-heart {
+            position: absolute; bottom: -8px; right: -5px;
+            background: var(--container-bg); border-radius: 50%;
+            padding: 3px; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            animation: popIn 0.3s ease;
+        }
+
+        .chat-input-area { padding: 10px; background: var(--container-bg); display: flex; align-items: center; gap: 10px; }
+        .chat-input-area input { margin: 0; border-radius: 20px; }
+        .send-btn, .attach-btn { background: var(--primary-color); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+        .attach-btn { background: #333; color: #ccc; }
+
+        .typing-indicator { font-size: 0.7rem; color: var(--primary-color); padding-left: 15px; height: 20px; }
+
+        /* Call Modal */
+        #call-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100; display: none; flex-direction: column;
+        }
+        #call-modal.active { display: flex; }
+        .video-container { flex: 1; position: relative; overflow: hidden; }
+        video#remoteVideo { width: 100%; height: 100%; object-fit: cover; }
+        video#localVideo {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 100px; height: 140px; background: #333;
+            border-radius: 10px; object-fit: cover; border: 2px solid white;
+            z-index: 101; cursor: grab;
+        }
+        .call-controls {
+            height: 80px; background: rgba(0,0,0,0.8);
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+            position: absolute; bottom: 0; width: 100%;
+        }
+        .control-btn {
+            width: 50px; height: 50px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center; font-size: 1.2rem; color: white;
+            cursor: pointer;
+        }
+        .btn-end { background: #f44336; }
+        .btn-mute { background: #444; }
+
+        /* Incoming Call Popup */
+        #incoming-call {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+        }
+        #incoming-call.active { display: flex; }
+        .incoming-avatar { width: 100px; height: 100px; border-radius: 50%; border: 3px solid var(--primary-color); margin-bottom: 20px; animation: pulse 1.5s infinite; }
+        .incoming-actions { display: flex; gap: 30px; margin-top: 30px; }
+        
+        /* Side Menu */
+        #side-menu {
+            position: absolute; top: 0; left: 0; height: 100%; width: 250px;
+            background: var(--container-bg); z-index: 50;
+            transform: translateX(-100%); transition: transform 0.3s;
+            padding: 20px; display: flex; flex-direction: column;
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        }
+        #side-menu.open { transform: translateX(0); }
+        .menu-header { text-align: center; margin-bottom: 30px; }
+        .menu-avatar { width: 80px; height: 80px; border-radius: 50%; margin-bottom: 10px; object-fit: cover; border: 2px solid var(--primary-color);}
+        .menu-item { padding: 15px 0; border-bottom: 1px solid #333; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        
+        .theme-selector { display: flex; gap: 10px; padding: 15px 0; border-bottom: 1px solid #333; }
+        .theme-btn { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+        .theme-btn.active { border-color: white; }
+
+        .menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 40; display: none;
+        }
+        .menu-overlay.open { display: block; }
+
+        /* Utils */
+        .hidden { display: none !important; }
+        .loading { color: var(--primary-color); font-size: 0.9rem; text-align: center; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(233, 30, 99, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0); }
+        }
+        @keyframes popIn {
+            0% { transform: scale(0); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <!-- AUTH SCREEN -->
+    <div id="auth-screen" class="screen active">
+        <div class="logo"><i class="fas fa-spa"></i> Kotha Koli</div>
+        <h2 style="margin-bottom:20px;">Welcome</h2>
+        <input type="email" id="auth-email" placeholder="Email">
+        <input type="password" id="auth-pass" placeholder="Password">
+        <button class="btn-primary" id="btn-login">Login</button>
+        <p class="auth-toggle" id="toggle-auth">New here? Create Account</p>
+        <p id="auth-error" style="color:red; font-size:0.8rem; margin-top:10px;"></p>
+    </div>
+
+    <!-- PROFILE SETUP -->
+    <div id="setup-screen" class="screen">
+        <h2>Setup Profile</h2>
+        <div class="profile-upload">
+            <img id="setup-preview" src="https://ui-avatars.com/api/?name=User&background=E91E63&color=fff&size=128" alt="Preview">
+            <input type="file" id="setup-file" accept="image/*">
+        </div>
+        <p id="upload-status" class="loading hidden">Uploading...</p>
+        <input type="text" id="setup-name" placeholder="Display Name (Max 20)" maxlength="20">
+        <input type="text" id="setup-bio" placeholder="Bio (Max 100)" maxlength="100">
+        <button class="btn-primary" id="btn-save-profile">Start Kotha Koli</button>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="main-app" class="screen">
+        <header>
+            <i class="fas fa-bars" id="btn-menu" style="font-size:1.2rem; cursor:pointer;"></i>
+            <span class="header-title">Contacts</span>
+            <i class="fas fa-user-plus" id="btn-add-friend" style="font-size:1.2rem; cursor:pointer;"></i>
+        </header>
+
+        <div id="add-friend-panel" style="background:#222; padding:10px; display:none;">
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="search-id" placeholder="Enter ID (e.g. kk-1234)" style="margin:0;">
+                <button class="btn-primary" id="btn-send-req" style="width:auto;"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <div id="main-content">
+            <!-- Contacts Tab -->
+            <div id="tab-contacts" class="tab-content active"></div>
+            <!-- Requests Tab -->
+            <div id="tab-requests" class="tab-content"></div>
+            <!-- Calls Tab -->
+            <div id="tab-calls" class="tab-content"></div>
+        </div>
+
+        <div class="bottom-nav">
+            <div class="nav-item active" data-tab="tab-contacts"><i class="fas fa-users"></i></div>
+            <div class="nav-item" data-tab="tab-requests">
+                <i class="fas fa-user-clock"></i>
+                <span id="req-badge" class="badge hidden">0</span>
+            </div>
+            <div class="nav-item" data-tab="tab-calls"><i class="fas fa-phone-alt"></i></div>
+        </div>
+    </div>
+
+    <!-- SIDE MENU -->
+    <div class="menu-overlay" id="menu-overlay"></div>
+    <div id="side-menu">
+        <div class="menu-header">
+            <img id="menu-dp" class="menu-avatar" src="">
+            <h3 id="menu-name"></h3>
+            <p id="menu-id" style="color:var(--primary-color); font-size:0.9rem;"></p>
+        </div>
+        
+        <div style="padding: 0 10px; margin-bottom:10px; color:#aaa; font-size:0.8rem;">Select Theme:</div>
+        <div class="theme-selector">
+            <!-- Pink -->
+            <div class="theme-btn" style="background:#E91E63;" onclick="setAppTheme('#E91E63')"></div>
+            <!-- Blue -->
+            <div class="theme-btn" style="background:#2196F3;" onclick="setAppTheme('#2196F3')"></div>
+            <!-- Green -->
+            <div class="theme-btn" style="background:#4CAF50;" onclick="setAppTheme('#4CAF50')"></div>
+            <!-- Purple -->
+            <div class="theme-btn" style="background:#9C27B0;" onclick="setAppTheme('#9C27B0')"></div>
+        </div>
+
+        <div class="menu-item"><i class="fas fa-cog"></i> Settings</div>
+        <div class="menu-item" id="btn-logout"><i class="fas fa-sign-out-alt" style="color:#f44336;"></i> Logout</div>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div id="chat-view" class="screen">
+        <div class="chat-header">
+            <i class="fas fa-arrow-left back-btn" id="chat-back"></i>
+            <img id="chat-header-img" class="user-avatar-small" style="margin-right:10px;">
+            <div style="flex:1;">
+                <div id="chat-header-name" style="font-weight:600;">User</div>
+                <div id="chat-header-status" style="font-size:0.7rem; color:var(--text-muted);">Online</div>
+            </div>
+            <i class="fas fa-phone-alt" id="btn-audio-call" style="margin-right:15px; cursor:pointer;"></i>
+            <i class="fas fa-video" id="btn-video-call" style="cursor:pointer;"></i>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="typing-indicator" id="typing-indicator"></div>
+        <div class="chat-input-area">
+            <div class="attach-btn" id="btn-attach"><i class="fas fa-paperclip"></i></div>
+            <input type="file" id="chat-file-input" accept="image/*" hidden>
+            <input type="text" id="chat-input" placeholder="Type a message...">
+            <div class="send-btn" id="btn-send-msg"><i class="fas fa-paper-plane"></i></div>
+        </div>
+    </div>
+
+    <!-- INCOMING CALL POPUP -->
+    <div id="incoming-call">
+        <img id="inc-avatar" class="incoming-avatar" src="">
+        <h3 id="inc-name">Name</h3>
+        <p id="inc-type" style="color:#ccc;">Incoming Video Call...</p>
+        <div class="incoming-actions">
+            <div class="control-btn btn-end" id="btn-reject"><i class="fas fa-phone-slash"></i></div>
+            <div class="control-btn" style="background:#00e676;" id="btn-accept"><i class="fas fa-phone"></i></div>
+        </div>
+    </div>
+
+    <!-- ACTIVE CALL MODAL -->
+    <div id="call-modal">
+        <div class="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay playsinline muted></video>
+        </div>
+        <div class="call-controls">
+            <div class="control-btn btn-mute" id="btn-toggle-mic"><i class="fas fa-microphone"></i></div>
+            <div class="control-btn btn-end" id="btn-hangup"><i class="fas fa-phone-slash"></i></div>
+            <div class="control-btn btn-mute" id="btn-toggle-cam"><i class="fas fa-video"></i></div>
+        </div>
+    </div>
+
+</div>
+
+<!-- FIREBASE & APP LOGIC -->
+<script type="module">
+    // --- 1. CONFIGURATION ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { getDatabase, ref, set, onValue, push, update, get, serverTimestamp, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+
+    // FIREBASE CONFIG
+    const firebaseConfig = {
+      apiKey: "AIzaSyDyGC2V67_A6P63xd5cpGGLL8lwmo-baqM",
+      authDomain: "kothakoli-c8dcb.firebaseapp.com",
+      databaseURL: "https://kothakoli-c8dcb-default-rtdb.firebaseio.com",
+      projectId: "kothakoli-c8dcb",
+      storageBucket: "kothakoli-c8dcb.firebasestorage.app",
+      messagingSenderId: "924517130385",
+      appId: "1:924517130385:web:1c0695730acc08e0a69f30"
+    };
+
+    const IMGBB_API_KEY = "76e7baa737db6b7fd04553090ebe83b0";
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // Global State
+    let currentUser = null;
+    let currentChatId = null;
+    let currentChatUser = null;
+    let localStream = null;
+    let remoteStream = null;
+    let peerConnection = null;
+    let callId = null;
+    let incomingCallData = null;
+    let typingTimeout = null;
+    let statusListener = null;
+
+    // AUDIO SYSTEM (Replaces Tone.js)
+    const DEFAULT_RINGTONE = "https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.m4a";
+    let ringtoneAudio = new Audio();
+    ringtoneAudio.loop = true;
+
+    function getRingtone() {
+        return localStorage.getItem('customRingtone') || DEFAULT_RINGTONE;
+    }
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('SW registered'))
+            .catch(err => console.log('SW failed', err));
+        });
+    }
+
+    // THEME SYSTEM
+    window.setAppTheme = (color) => {
+        document.documentElement.style.setProperty('--primary-color', color);
+        document.documentElement.style.setProperty('--bubble-bg-me', color);
+        localStorage.setItem('kk-theme', color);
+    }
+    
+    // Apply saved theme on load
+    const savedTheme = localStorage.getItem('kk-theme');
+    if(savedTheme) window.setAppTheme(savedTheme);
+
+    // WebRTC Config
+    const rtcConfig = {
+        iceServers: [ { urls: 'stun:stun.l.google.com:19302' } ]
+    };
+
+    // DOM Elements
+    const views = {
+        auth: document.getElementById('auth-screen'),
+        setup: document.getElementById('setup-screen'),
+        main: document.getElementById('main-app'),
+        chat: document.getElementById('chat-view')
+    };
+
+    // --- 2. AUTHENTICATION & SETUP ---
+    
+    // Toggle Login/Signup
+    let isLogin = true;
+    document.getElementById('toggle-auth').addEventListener('click', () => {
+        isLogin = !isLogin;
+        document.querySelector('#auth-screen h2').textContent = isLogin ? 'Welcome' : 'Create Account';
+        document.getElementById('btn-login').textContent = isLogin ? 'Login' : 'Sign Up';
+        document.getElementById('toggle-auth').textContent = isLogin ? 'New here? Create Account' : 'Already have an account? Login';
+    });
+
+    document.getElementById('btn-login').addEventListener('click', async () => {
+        const email = document.getElementById('auth-email').value;
+        const pass = document.getElementById('auth-pass').value;
+        const errorMsg = document.getElementById('auth-error');
+
+        try {
+            if (isLogin) {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } else {
+                await createUserWithEmailAndPassword(auth, email, pass);
+            }
+        } catch (e) {
+            errorMsg.textContent = e.message;
+        }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            currentUser = user;
+            const snapshot = await get(ref(db, `users/${user.uid}`));
+            if (snapshot.exists()) {
+                initApp(snapshot.val());
+            } else {
+                showScreen('setup');
+            }
+        } else {
+            currentUser = null;
+            showScreen('auth');
+        }
+    });
+
+    // Profile Setup (ImgBB)
+    let uploadedImageUrl = "";
+    async function uploadToImgBB(file) {
+        const formData = new FormData();
+        formData.append("image", file);
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: "POST", body: formData
+        });
+        const data = await res.json();
+        return data.data.url;
+    }
+
+    document.getElementById('setup-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        document.getElementById('upload-status').classList.remove('hidden');
+        try {
+            uploadedImageUrl = await uploadToImgBB(file);
+            document.getElementById('setup-preview').src = uploadedImageUrl;
+            document.getElementById('upload-status').textContent = "Upload Complete!";
+        } catch (err) {
+            document.getElementById('upload-status').textContent = "Upload Failed";
+        }
+    });
+
+    document.getElementById('btn-save-profile').addEventListener('click', async () => {
+        const name = document.getElementById('setup-name').value;
+        const bio = document.getElementById('setup-bio').value;
+        if (!name) return alert("Name is required");
+
+        const uniqueId = `kk-${Math.floor(1000 + Math.random() * 9000)}`;
+        const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=E91E63&color=fff&size=128`;
+        
+        const userData = {
+            uid: currentUser.uid,
+            name, bio,
+            dpUrl: uploadedImageUrl || defaultAvatar,
+            userId: uniqueId,
+            email: currentUser.email
+        };
+
+        await set(ref(db, `users/${currentUser.uid}`), userData);
+        await set(ref(db, `userIds/${uniqueId}`), currentUser.uid); 
+        initApp(userData);
+    });
+
+    // --- 3. MAIN APP LOGIC ---
+
+    function showScreen(name) {
+        Object.values(views).forEach(v => v.classList.remove('active'));
+        if(views[name]) views[name].classList.add('active');
+    }
+
+    function initApp(userData) {
+        showScreen('main');
+        
+        // Presence System
+        const connectedRef = ref(db, '.info/connected');
+        onValue(connectedRef, (snap) => {
+            if (snap.val() === true) {
+                const con = ref(db, `status/${currentUser.uid}`);
+                onDisconnect(con).set({ state: 'offline', last_changed: serverTimestamp() });
+                set(con, { state: 'online', last_changed: serverTimestamp() });
+            }
+        });
+
+        // Setup Side Menu
+        document.getElementById('menu-dp').src = userData.dpUrl;
+        document.getElementById('menu-name').textContent = userData.name;
+        document.getElementById('menu-id').textContent = `ID: ${userData.userId}`;
+
+        loadContacts();
+        loadRequests();
+        loadCalls();
+        listenForIncomingCalls();
+    }
+
+    // Navigation Logic
+    document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            item.classList.add('active');
+            document.getElementById(item.dataset.tab).classList.add('active');
+            const title = item.dataset.tab === 'tab-contacts' ? 'Contacts' : 
+                          item.dataset.tab === 'tab-requests' ? 'Requests' : 'Calls';
+            document.querySelector('.header-title').textContent = title;
+        });
+    });
+
+    // Side Menu Interactions
+    const sideMenu = document.getElementById('side-menu');
+    const menuOverlay = document.getElementById('menu-overlay');
+    document.getElementById('btn-menu').addEventListener('click', () => {
+        sideMenu.classList.add('open');
+        menuOverlay.classList.add('open');
+    });
+    menuOverlay.addEventListener('click', () => {
+        sideMenu.classList.remove('open');
+        menuOverlay.classList.remove('open');
+    });
+    document.getElementById('btn-logout').addEventListener('click', () => {
+        signOut(auth);
+        window.location.reload();
+    });
+
+    // Add Friend
+    document.getElementById('btn-add-friend').addEventListener('click', () => {
+        const panel = document.getElementById('add-friend-panel');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('btn-send-req').addEventListener('click', async () => {
+        const targetId = document.getElementById('search-id').value.trim();
+        if(!targetId) return;
+        const idSnap = await get(ref(db, `userIds/${targetId}`));
+        if(idSnap.exists()){
+            const targetUid = idSnap.val();
+            if(targetUid === currentUser.uid) return alert("Cannot add yourself");
+            await push(ref(db, `requests/${targetUid}`), { from: currentUser.uid, timestamp: serverTimestamp() });
+            alert("Request Sent!");
+            document.getElementById('search-id').value = "";
+            document.getElementById('add-friend-panel').style.display = 'none';
+        } else {
+            alert("User ID not found");
+        }
+    });
+
+    // Load Requests
+    function loadRequests() {
+        onValue(ref(db, `requests/${currentUser.uid}`), (snap) => {
+            const container = document.getElementById('tab-requests');
+            container.innerHTML = "";
+            const count = snap.size;
+            document.getElementById('req-badge').textContent = count;
+            document.getElementById('req-badge').classList.toggle('hidden', count === 0);
+
+            if(!snap.exists()) {
+                container.innerHTML = "<p style='text-align:center; padding:20px; color:#666;'>No pending requests</p>";
+                return;
+            }
+
+            snap.forEach(req => {
+                const reqId = req.key;
+                const fromUid = req.val().from;
+                get(ref(db, `users/${fromUid}`)).then(userSnap => {
+                    const u = userSnap.val();
+                    const el = document.createElement('div');
+                    el.className = 'list-item';
+                    el.innerHTML = `
+                        <img src="${u.dpUrl}">
+                        <div class="list-info">
+                            <div class="list-name">${u.name}</div>
+                            <div class="list-sub">Wants to add you</div>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <i class="fas fa-check" style="color:#00e676; padding:10px; background:#333; border-radius:50%;" onclick="window.acceptReq('${reqId}', '${fromUid}')"></i>
+                            <i class="fas fa-times" style="color:#f44336; padding:10px; background:#333; border-radius:50%;" onclick="window.rejectReq('${reqId}')"></i>
+                        </div>
+                    `;
+                    container.appendChild(el);
+                });
+            });
+        });
+    }
+
+    window.acceptReq = async (reqId, fromUid) => {
+        await set(ref(db, `contacts/${currentUser.uid}/${fromUid}`), true);
+        await set(ref(db, `contacts/${fromUid}/${currentUser.uid}`), true);
+        await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
+    };
+    window.rejectReq = async (reqId) => {
+        await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
+    };
+
+    // Load Contacts
+    function loadContacts() {
+        onValue(ref(db, `contacts/${currentUser.uid}`), (snap) => {
+            const container = document.getElementById('tab-contacts');
+            container.innerHTML = "";
+            if(!snap.exists()) return;
+
+            snap.forEach(c => {
+                const uid = c.key;
+                get(ref(db, `users/${uid}`)).then(userSnap => {
+                    const u = userSnap.val();
+                    onValue(ref(db, `status/${uid}`), (statusSnap) => {
+                        const isOnline = statusSnap.val()?.state === 'online';
+                        let el = document.getElementById(`contact-${uid}`);
+                        if(!el) {
+                            el = document.createElement('div');
+                            el.id = `contact-${uid}`;
+                            el.className = 'list-item';
+                            el.onclick = () => openChat(u);
+                            container.appendChild(el);
+                        }
+                        el.innerHTML = `
+                            <img src="${u.dpUrl}">
+                            <div class="list-info">
+                                <div class="list-name">${u.name}</div>
+                                <div class="list-sub"><span class="status-dot ${isOnline?'online':''}"></span> ${isOnline?'Online':'Offline'}</div>
+                            </div>
+                        `;
+                    });
+                });
+            });
+        });
+    }
+
+    // --- 4. CHAT FUNCTIONALITY ---
+
+    function getChatId(uid1, uid2) {
+        return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
+    }
+
+    async function openChat(user) {
+        currentChatUser = user;
+        currentChatId = getChatId(currentUser.uid, user.uid);
+        
+        document.getElementById('chat-header-name').textContent = user.name;
+        document.getElementById('chat-header-img').src = user.dpUrl;
+        document.getElementById('chat-view').classList.add('open');
+        document.getElementById('chat-messages').innerHTML = "";
+
+        // Status Listener (Online / Last Seen)
+        if(statusListener) statusListener(); // Unsubscribe prev
+        statusListener = onValue(ref(db, `status/${user.uid}`), (snap) => {
+            const st = snap.val();
+            const el = document.getElementById('chat-header-status');
+            if (st && st.state === 'online') {
+                el.textContent = 'Online';
+                el.style.color = '#00e676';
+            } else if (st && st.last_changed) {
+                const date = new Date(st.last_changed);
+                el.textContent = `Last seen ${date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                el.style.color = 'var(--text-muted)';
+            } else {
+                el.textContent = 'Offline';
+                el.style.color = 'var(--text-muted)';
+            }
+        });
+
+        // Listen for messages
+        onValue(ref(db, `messages/${currentChatId}`), (snap) => {
+            const container = document.getElementById('chat-messages');
+            container.innerHTML = "";
+            snap.forEach(msgSnap => {
+                const msg = msgSnap.val();
+                const msgKey = msgSnap.key;
+                const div = document.createElement('div');
+                div.className = `message ${msg.sender === currentUser.uid ? 'msg-me' : 'msg-other'}`;
+                
+                // Content Rendering (Text or Image)
+                let content = '';
+                if(msg.type === 'image') {
+                    content = `<img src="${msg.text}" class="msg-image" onclick="window.open('${msg.text}', '_blank')">`;
+                } else {
+                    content = msg.text;
+                }
+
+                // Reaction Heart
+                let heartHtml = msg.liked ? `<div class="reaction-heart"><i class="fas fa-heart" style="color:red;"></i></div>` : '';
+
+                div.innerHTML = `
+                    ${content}
+                    <span class="msg-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    ${heartHtml}
+                `;
+                
+                // Double tap to like
+                div.addEventListener('dblclick', () => {
+                    if(!msg.liked) {
+                        update(ref(db, `messages/${currentChatId}/${msgKey}`), { liked: true });
+                    }
+                });
+
+                container.appendChild(div);
+            });
+            container.scrollTop = container.scrollHeight;
+        });
+
+        // Listen for typing
+        onValue(ref(db, `typing/${currentChatId}/${user.uid}`), (snap) => {
+            const isTyping = snap.val();
+            const ind = document.getElementById('typing-indicator');
+            ind.textContent = isTyping ? `${user.name} is typing...` : '';
+            // Auto hide if stuck
+            if(isTyping) {
+                 setTimeout(() => {
+                     // We don't force false here to avoid UI flickering, 
+                     // relying on the sender to clear it, but UI fade could be added here.
+                 }, 4000);
+            }
+        });
+    }
+
+    document.getElementById('chat-back').addEventListener('click', () => {
+        document.getElementById('chat-view').classList.remove('open');
+        currentChatId = null;
+        currentChatUser = null;
+    });
+
+    // Send Text Message
+    document.getElementById('btn-send-msg').addEventListener('click', sendMessage);
+    document.getElementById('chat-input').addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') sendMessage();
+        
+        // Typing Indicator logic
+        update(ref(db, `typing/${currentChatId}/${currentUser.uid}`), { value: true });
+        if(typingTimeout) clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            remove(ref(db, `typing/${currentChatId}/${currentUser.uid}`));
+        }, 3000); // 3 Seconds timeout
+    });
+
+    async function sendMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if(!text) return;
+
+        await push(ref(db, `messages/${currentChatId}`), {
+            text,
+            sender: currentUser.uid,
+            timestamp: serverTimestamp(),
+            type: 'text'
+        });
+        input.value = "";
+    }
+
+    // Attachment Logic
+    document.getElementById('btn-attach').addEventListener('click', () => {
+        document.getElementById('chat-file-input').click();
+    });
+
+    document.getElementById('chat-file-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+
+        // Visual feedback could be added here
+        try {
+            const url = await uploadToImgBB(file);
+            await push(ref(db, `messages/${currentChatId}`), {
+                text: url,
+                sender: currentUser.uid,
+                timestamp: serverTimestamp(),
+                type: 'image'
+            });
+        } catch(err) {
+            alert("Image upload failed");
+        }
+        e.target.value = ''; // Reset input
+    });
+
+    // --- 5. WebRTC & CALLING ---
+
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+
+    // Drag Local Video
+    let isDragging = false;
+    let offset = { x: 0, y: 0 };
+    localVideo.addEventListener('mousedown', startDrag);
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('mousemove', drag);
+    localVideo.addEventListener('touchstart', (e) => startDrag(e.touches[0]));
+    document.addEventListener('touchend', stopDrag);
+    document.addEventListener('touchmove', (e) => drag(e.touches[0]));
+
+    function startDrag(e) {
+        isDragging = true;
+        offset.x = e.clientX - localVideo.getBoundingClientRect().left;
+        offset.y = e.clientY - localVideo.getBoundingClientRect().top;
+    }
+    function stopDrag() { isDragging = false; }
+    function drag(e) {
+        if(!isDragging) return;
+        const container = document.getElementById('call-modal');
+        const x = e.clientX - offset.x;
+        const y = e.clientY - offset.y;
+        const maxX = container.clientWidth - localVideo.clientWidth;
+        const maxY = container.clientHeight - localVideo.clientHeight;
+        localVideo.style.left = `${Math.min(Math.max(0, x), maxX)}px`;
+        localVideo.style.top = `${Math.min(Math.max(0, y), maxY)}px`;
+    }
+
+    // Call Logic
+    document.getElementById('btn-video-call').addEventListener('click', () => startCall('video'));
+    document.getElementById('btn-audio-call').addEventListener('click', () => startCall('audio'));
+
+    async function startCall(type) {
+        callId = currentChatId; 
+        document.getElementById('call-modal').classList.add('active');
+        
+        const constraints = {
+            audio: true,
+            video: type === 'video' ? { facingMode: "user" } : false
+        };
+        
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia(constraints);
+            localVideo.srcObject = localStream;
+            localVideo.classList.toggle('hidden', type === 'audio');
+
+            createPeerConnection();
+            localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            const callData = {
+                type: 'offer',
+                sdp: offer.sdp,
+                caller: currentUser.uid,
+                callType: type,
+                timestamp: serverTimestamp()
+            };
+            
+            await remove(ref(db, `calls/${currentChatUser.uid}`));
+            await set(ref(db, `calls/${currentChatUser.uid}`), callData);
+
+            push(ref(db, `callLogs/${currentUser.uid}`), {
+                partner: currentChatUser.name,
+                type: 'outgoing',
+                mode: type,
+                date: serverTimestamp()
+            });
+
+        } catch (e) {
+            console.error("Call error:", e);
+            endCall();
+        }
+    }
+
+    function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(rtcConfig);
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                const targetUid = currentChatUser ? currentChatUser.uid : incomingCallData.caller;
+                push(ref(db, `calls/${targetUid}/candidates`), event.candidate.toJSON());
+            }
+        };
+
+        peerConnection.ontrack = (event) => {
+            remoteStream = event.streams[0];
+            remoteVideo.srcObject = remoteStream;
+        };
+
+        onValue(ref(db, `calls/${currentUser.uid}/candidates`), (snap) => {
+            snap.forEach(c => {
+                const candidate = new RTCIceCandidate(c.val());
+                peerConnection.addIceCandidate(candidate).catch(e => console.error(e));
+            });
+        });
+    }
+
+    // Incoming Calls Logic
+    function listenForIncomingCalls() {
+        onValue(ref(db, `calls/${currentUser.uid}`), async (snap) => {
+            const data = snap.val();
+            if (data && data.type === 'offer') {
+                incomingCallData = data;
+                
+                const callerSnap = await get(ref(db, `users/${data.caller}`));
+                const caller = callerSnap.val();
+                
+                document.getElementById('inc-name').textContent = caller.name;
+                document.getElementById('inc-avatar').src = caller.dpUrl;
+                document.getElementById('inc-type').textContent = `Incoming ${data.callType} call...`;
+                document.getElementById('incoming-call').classList.add('active');
+
+                // Play Audio Ringtone
+                ringtoneAudio.src = getRingtone();
+                ringtoneAudio.currentTime = 0;
+                ringtoneAudio.play().catch(e => console.log("Audio play failed (interaction needed)"));
+
+            } else if (!data) {
+                // Call ended/canceled
+                document.getElementById('incoming-call').classList.remove('active');
+                ringtoneAudio.pause();
+            } else if (data.type === 'answer' && peerConnection) {
+                 const answer = new RTCSessionDescription({ type: 'answer', sdp: data.sdp });
+                 await peerConnection.setRemoteDescription(answer);
+            }
+        });
+    }
+
+    document.getElementById('btn-accept').addEventListener('click', async () => {
+        document.getElementById('incoming-call').classList.remove('active');
+        ringtoneAudio.pause();
+        ringtoneAudio.currentTime = 0;
+
+        document.getElementById('call-modal').classList.add('active');
+
+        const type = incomingCallData.callType;
+        const constraints = {
+            audio: true,
+            video: type === 'video' ? { facingMode: "user" } : false
+        };
+
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        localVideo.srcObject = localStream;
+        localVideo.classList.toggle('hidden', type === 'audio');
+
+        createPeerConnection();
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        const offer = new RTCSessionDescription({ type: 'offer', sdp: incomingCallData.sdp });
+        await peerConnection.setRemoteDescription(offer);
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        await update(ref(db, `calls/${incomingCallData.caller}`), {
+            type: 'answer',
+            sdp: answer.sdp
+        });
+        
+        push(ref(db, `callLogs/${currentUser.uid}`), {
+            partner: document.getElementById('inc-name').textContent, 
+            type: 'incoming',
+            mode: type,
+            date: serverTimestamp()
+        });
+    });
+
+    document.getElementById('btn-reject').addEventListener('click', async () => {
+        ringtoneAudio.pause();
+        ringtoneAudio.currentTime = 0;
+        await remove(ref(db, `calls/${currentUser.uid}`));
+        document.getElementById('incoming-call').classList.remove('active');
+    });
+
+    // End Call
+    document.getElementById('btn-hangup').addEventListener('click', endCall);
+
+    async function endCall() {
+        if(localStream) localStream.getTracks().forEach(track => track.stop());
+        if(peerConnection) peerConnection.close();
+        
+        peerConnection = null;
+        localStream = null;
+        
+        document.getElementById('call-modal').classList.remove('active');
+        
+        if(currentChatUser) await remove(ref(db, `calls/${currentChatUser.uid}`));
+        await remove(ref(db, `calls/${currentUser.uid}`));
+    }
+
+    // Toggle Mic/Cam
+    document.getElementById('btn-toggle-mic').addEventListener('click', function() {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if(audioTrack) {
+            audioTrack.enabled = !audioTrack.enabled;
+            this.style.background = audioTrack.enabled ? '#444' : '#f44336';
+        }
+    });
+
+    document.getElementById('btn-toggle-cam').addEventListener('click', function() {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if(videoTrack) {
+            videoTrack.enabled = !videoTrack.enabled;
+            this.style.background = videoTrack.enabled ? '#444' : '#f44336';
+        }
+    });
+
+    // Load Call Logs
+    function loadCalls() {
+        onValue(ref(db, `callLogs/${currentUser.uid}`), (snap) => {
+            const container = document.getElementById('tab-calls');
+            container.innerHTML = "";
+            if(!snap.exists()) {
+                container.innerHTML = "<p style='text-align:center; padding:20px;'>No call history</p>";
+                return;
+            }
+            const logs = [];
+            snap.forEach(c => logs.push(c.val()));
+            logs.reverse().forEach(log => {
+                const icon = log.mode === 'video' ? 'fa-video' : 'fa-phone';
+                const color = log.type === 'missed' ? 'red' : (log.type === 'incoming' ? 'green' : '#ccc');
+                const el = document.createElement('div');
+                el.className = 'list-item';
+                el.innerHTML = `
+                     <div style="width:45px; height:45px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                        <i class="fas ${icon}"></i>
+                     </div>
+                     <div class="list-info" style="margin-left:10px;">
+                        <div class="list-name">${log.partner || 'Unknown'}</div>
+                        <div class="list-sub" style="color:${color}; text-transform:capitalize;">
+                            <i class="fas fa-arrow-${log.type === 'incoming'?'down':'up'}"></i> ${log.type}
+                        </div>
+                     </div>
+                `;
+                container.appendChild(el);
+            });
+        });
+    }
+
+</script>
+</body>
+</html>

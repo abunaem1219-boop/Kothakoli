@@ -139,9 +139,12 @@
             margin-bottom: 8px;
             border-radius: 8px;
             cursor: pointer;
+            position: relative;
         }
-        .list-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; object-fit: cover; }
-        .list-info { flex: 1; }
+        .list-item:active { background: #333; transform: scale(0.98); transition: 0.1s;}
+        
+        .list-item img { width: 45px; height: 45px; border-radius: 50%; margin-right: 12px; object-fit: cover; pointer-events: none; }
+        .list-info { flex: 1; pointer-events: none; }
         .list-name { font-weight: 600; font-size: 1rem; }
         .list-sub { font-size: 0.8rem; color: var(--text-muted); }
         .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #555; display: inline-block; margin-right: 5px;}
@@ -165,16 +168,23 @@
             font-size: 0.6rem; padding: 2px 5px; border-radius: 10px;
         }
 
-        /* Chat View */
-        #chat-view { z-index: 30; background: var(--background-color); transform: translateX(100%); transition: transform 0.3s; }
+        /* Chat View - FIX: Added display: flex to override hidden state */
+        #chat-view { 
+            display: flex !important; /* FIX: Always render */
+            z-index: 30; 
+            background: var(--background-color); 
+            transform: translateX(100%); 
+            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
         #chat-view.open { transform: translateX(0); }
+        
         .chat-header { display: flex; align-items: center; padding: 0 10px; height: 60px; background: var(--container-bg); }
         .back-btn { margin-right: 10px; font-size: 1.2rem; padding: 10px; }
         .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         
         .message { 
             max-width: 75%; padding: 10px 14px; border-radius: 18px; font-size: 0.9rem; word-wrap: break-word; position: relative; 
-            user-select: none; -webkit-user-select: none; /* For double tap */
+            user-select: none; -webkit-user-select: none; 
         }
         .msg-me { align-self: flex-end; background: var(--bubble-bg-me); border-bottom-right-radius: 4px; }
         .msg-other { align-self: flex-start; background: var(--bubble-bg-other); border-bottom-left-radius: 4px; }
@@ -265,10 +275,6 @@
             70% { box-shadow: 0 0 0 20px rgba(233, 30, 99, 0); }
             100% { box-shadow: 0 0 0 0 rgba(233, 30, 99, 0); }
         }
-        @keyframes popIn {
-            0% { transform: scale(0); }
-            100% { transform: scale(1); }
-        }
     </style>
 </head>
 <body>
@@ -344,13 +350,9 @@
         
         <div style="padding: 0 10px; margin-bottom:10px; color:#aaa; font-size:0.8rem;">Select Theme:</div>
         <div class="theme-selector">
-            <!-- Pink -->
             <div class="theme-btn" style="background:#E91E63;" onclick="setAppTheme('#E91E63')"></div>
-            <!-- Blue -->
             <div class="theme-btn" style="background:#2196F3;" onclick="setAppTheme('#2196F3')"></div>
-            <!-- Green -->
             <div class="theme-btn" style="background:#4CAF50;" onclick="setAppTheme('#4CAF50')"></div>
-            <!-- Purple -->
             <div class="theme-btn" style="background:#9C27B0;" onclick="setAppTheme('#9C27B0')"></div>
         </div>
 
@@ -426,12 +428,11 @@
 
     const IMGBB_API_KEY = "76e7baa737db6b7fd04553090ebe83b0";
 
-    // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
 
-    // Global State
+    // Global Stores
     let currentUser = null;
     let currentChatId = null;
     let currentChatUser = null;
@@ -443,23 +444,12 @@
     let typingTimeout = null;
     let statusListener = null;
 
-    // AUDIO SYSTEM (Replaces Tone.js)
+    // AUDIO SYSTEM
     const DEFAULT_RINGTONE = "https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.m4a";
     let ringtoneAudio = new Audio();
     ringtoneAudio.loop = true;
 
-    function getRingtone() {
-        return localStorage.getItem('customRingtone') || DEFAULT_RINGTONE;
-    }
-
-    // PWA Service Worker Registration
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('SW registered'))
-            .catch(err => console.log('SW failed', err));
-        });
-    }
+    function getRingtone() { return localStorage.getItem('customRingtone') || DEFAULT_RINGTONE; }
 
     // THEME SYSTEM
     window.setAppTheme = (color) => {
@@ -467,15 +457,11 @@
         document.documentElement.style.setProperty('--bubble-bg-me', color);
         localStorage.setItem('kk-theme', color);
     }
-    
-    // Apply saved theme on load
     const savedTheme = localStorage.getItem('kk-theme');
     if(savedTheme) window.setAppTheme(savedTheme);
 
     // WebRTC Config
-    const rtcConfig = {
-        iceServers: [ { urls: 'stun:stun.l.google.com:19302' } ]
-    };
+    const rtcConfig = { iceServers: [ { urls: 'stun:stun.l.google.com:19302' } ] };
 
     // DOM Elements
     const views = {
@@ -487,7 +473,6 @@
 
     // --- 2. AUTHENTICATION & SETUP ---
     
-    // Toggle Login/Signup
     let isLogin = true;
     document.getElementById('toggle-auth').addEventListener('click', () => {
         isLogin = !isLogin;
@@ -500,27 +485,18 @@
         const email = document.getElementById('auth-email').value;
         const pass = document.getElementById('auth-pass').value;
         const errorMsg = document.getElementById('auth-error');
-
         try {
-            if (isLogin) {
-                await signInWithEmailAndPassword(auth, email, pass);
-            } else {
-                await createUserWithEmailAndPassword(auth, email, pass);
-            }
-        } catch (e) {
-            errorMsg.textContent = e.message;
-        }
+            if (isLogin) await signInWithEmailAndPassword(auth, email, pass);
+            else await createUserWithEmailAndPassword(auth, email, pass);
+        } catch (e) { errorMsg.textContent = e.message; }
     });
 
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             currentUser = user;
             const snapshot = await get(ref(db, `users/${user.uid}`));
-            if (snapshot.exists()) {
-                initApp(snapshot.val());
-            } else {
-                showScreen('setup');
-            }
+            if (snapshot.exists()) initApp(snapshot.val());
+            else showScreen('setup');
         } else {
             currentUser = null;
             showScreen('auth');
@@ -532,9 +508,7 @@
     async function uploadToImgBB(file) {
         const formData = new FormData();
         formData.append("image", file);
-        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-            method: "POST", body: formData
-        });
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
         const data = await res.json();
         return data.data.url;
     }
@@ -547,9 +521,7 @@
             uploadedImageUrl = await uploadToImgBB(file);
             document.getElementById('setup-preview').src = uploadedImageUrl;
             document.getElementById('upload-status').textContent = "Upload Complete!";
-        } catch (err) {
-            document.getElementById('upload-status').textContent = "Upload Failed";
-        }
+        } catch (err) { document.getElementById('upload-status').textContent = "Upload Failed"; }
     });
 
     document.getElementById('btn-save-profile').addEventListener('click', async () => {
@@ -583,7 +555,6 @@
     function initApp(userData) {
         showScreen('main');
         
-        // Presence System
         const connectedRef = ref(db, '.info/connected');
         onValue(connectedRef, (snap) => {
             if (snap.val() === true) {
@@ -593,7 +564,6 @@
             }
         });
 
-        // Setup Side Menu
         document.getElementById('menu-dp').src = userData.dpUrl;
         document.getElementById('menu-name').textContent = userData.name;
         document.getElementById('menu-id').textContent = `ID: ${userData.userId}`;
@@ -604,7 +574,7 @@
         listenForIncomingCalls();
     }
 
-    // Navigation Logic
+    // Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', () => {
             document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -617,7 +587,7 @@
         });
     });
 
-    // Side Menu Interactions
+    // Side Menu
     const sideMenu = document.getElementById('side-menu');
     const menuOverlay = document.getElementById('menu-overlay');
     document.getElementById('btn-menu').addEventListener('click', () => {
@@ -655,79 +625,52 @@
         }
     });
 
-    // Load Requests
-    function loadRequests() {
-        onValue(ref(db, `requests/${currentUser.uid}`), (snap) => {
-            const container = document.getElementById('tab-requests');
+    // --- 4. LOAD CONTACTS & CHAT ---
+    function loadContacts() {
+        const contactsRef = ref(db, `contacts/${currentUser.uid}`);
+        
+        onValue(contactsRef, (snap) => {
+            const container = document.getElementById('tab-contacts');
             container.innerHTML = "";
-            const count = snap.size;
-            document.getElementById('req-badge').textContent = count;
-            document.getElementById('req-badge').classList.toggle('hidden', count === 0);
-
+            
             if(!snap.exists()) {
-                container.innerHTML = "<p style='text-align:center; padding:20px; color:#666;'>No pending requests</p>";
+                container.innerHTML = "<p style='text-align:center; padding:20px; color:#666;'>No contacts found.</p>";
                 return;
             }
 
-            snap.forEach(req => {
-                const reqId = req.key;
-                const fromUid = req.val().from;
-                get(ref(db, `users/${fromUid}`)).then(userSnap => {
-                    const u = userSnap.val();
-                    const el = document.createElement('div');
-                    el.className = 'list-item';
-                    el.innerHTML = `
-                        <img src="${u.dpUrl}">
-                        <div class="list-info">
-                            <div class="list-name">${u.name}</div>
-                            <div class="list-sub">Wants to add you</div>
-                        </div>
-                        <div style="display:flex; gap:10px;">
-                            <i class="fas fa-check" style="color:#00e676; padding:10px; background:#333; border-radius:50%;" onclick="window.acceptReq('${reqId}', '${fromUid}')"></i>
-                            <i class="fas fa-times" style="color:#f44336; padding:10px; background:#333; border-radius:50%;" onclick="window.rejectReq('${reqId}')"></i>
-                        </div>
-                    `;
-                    container.appendChild(el);
-                });
-            });
-        });
-    }
-
-    window.acceptReq = async (reqId, fromUid) => {
-        await set(ref(db, `contacts/${currentUser.uid}/${fromUid}`), true);
-        await set(ref(db, `contacts/${fromUid}/${currentUser.uid}`), true);
-        await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
-    };
-    window.rejectReq = async (reqId) => {
-        await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
-    };
-
-    // Load Contacts
-    function loadContacts() {
-        onValue(ref(db, `contacts/${currentUser.uid}`), (snap) => {
-            const container = document.getElementById('tab-contacts');
-            container.innerHTML = "";
-            if(!snap.exists()) return;
-
             snap.forEach(c => {
-                const uid = c.key;
-                get(ref(db, `users/${uid}`)).then(userSnap => {
-                    const u = userSnap.val();
-                    onValue(ref(db, `status/${uid}`), (statusSnap) => {
+                const partnerUid = c.key; 
+                get(ref(db, `users/${partnerUid}`)).then(userSnap => {
+                    if (!userSnap.exists()) return;
+
+                    const userData = userSnap.val();
+                    const u = { ...userData, uid: partnerUid };
+
+                    onValue(ref(db, `status/${partnerUid}`), (statusSnap) => {
                         const isOnline = statusSnap.val()?.state === 'online';
-                        let el = document.getElementById(`contact-${uid}`);
+                        
+                        let el = document.getElementById(`contact-${partnerUid}`);
                         if(!el) {
                             el = document.createElement('div');
-                            el.id = `contact-${uid}`;
+                            el.id = `contact-${partnerUid}`;
                             el.className = 'list-item';
-                            el.onclick = () => openChat(u);
+                            
+                            // Direct JS Event Listener
+                            el.addEventListener('click', () => {
+                                openChat(u);
+                            });
+                            
                             container.appendChild(el);
                         }
+                        
                         el.innerHTML = `
-                            <img src="${u.dpUrl}">
+                            <img src="${u.dpUrl}" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=${u.name}&background=random';">
                             <div class="list-info">
                                 <div class="list-name">${u.name}</div>
-                                <div class="list-sub"><span class="status-dot ${isOnline?'online':''}"></span> ${isOnline?'Online':'Offline'}</div>
+                                <div class="list-sub">
+                                    <span class="status-dot ${isOnline?'online':''}"></span> 
+                                    ${isOnline ? 'Online' : 'Offline'}
+                                </div>
                             </div>
                         `;
                     });
@@ -736,91 +679,92 @@
         });
     }
 
-    // --- 4. CHAT FUNCTIONALITY ---
-
     function getChatId(uid1, uid2) {
         return uid1 < uid2 ? `${uid1}_${uid2}` : `${uid2}_${uid1}`;
     }
 
+    // UPDATED OPEN CHAT
     async function openChat(user) {
-        currentChatUser = user;
-        currentChatId = getChatId(currentUser.uid, user.uid);
-        
-        document.getElementById('chat-header-name').textContent = user.name;
-        document.getElementById('chat-header-img').src = user.dpUrl;
-        document.getElementById('chat-view').classList.add('open');
-        document.getElementById('chat-messages').innerHTML = "";
+        try {
+            if (!user || !user.uid) throw new Error("User data missing");
+            if (!currentUser) throw new Error("Auth missing");
 
-        // Status Listener (Online / Last Seen)
-        if(statusListener) statusListener(); // Unsubscribe prev
-        statusListener = onValue(ref(db, `status/${user.uid}`), (snap) => {
-            const st = snap.val();
-            const el = document.getElementById('chat-header-status');
-            if (st && st.state === 'online') {
-                el.textContent = 'Online';
-                el.style.color = '#00e676';
-            } else if (st && st.last_changed) {
-                const date = new Date(st.last_changed);
-                el.textContent = `Last seen ${date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
-                el.style.color = 'var(--text-muted)';
-            } else {
-                el.textContent = 'Offline';
-                el.style.color = 'var(--text-muted)';
-            }
-        });
+            currentChatUser = user;
+            currentChatId = getChatId(currentUser.uid, user.uid);
+            
+            // UI Updates
+            document.getElementById('chat-header-name').textContent = user.name;
+            const headerImg = document.getElementById('chat-header-img');
+            headerImg.src = user.dpUrl;
+            headerImg.onerror = function() { this.src = `https://ui-avatars.com/api/?name=${user.name}&background=random`; };
 
-        // Listen for messages
-        onValue(ref(db, `messages/${currentChatId}`), (snap) => {
-            const container = document.getElementById('chat-messages');
-            container.innerHTML = "";
-            snap.forEach(msgSnap => {
-                const msg = msgSnap.val();
-                const msgKey = msgSnap.key;
-                const div = document.createElement('div');
-                div.className = `message ${msg.sender === currentUser.uid ? 'msg-me' : 'msg-other'}`;
-                
-                // Content Rendering (Text or Image)
-                let content = '';
-                if(msg.type === 'image') {
-                    content = `<img src="${msg.text}" class="msg-image" onclick="window.open('${msg.text}', '_blank')">`;
+            // Show Chat View
+            const chatView = document.getElementById('chat-view');
+            chatView.classList.add('open');
+            
+            document.getElementById('chat-messages').innerHTML = "<p class='loading' style='padding:20px; text-align:center;'>Loading messages...</p>";
+
+            // Status Listener
+            if(statusListener) { /* Optional: unsubscribe logic */ }
+            statusListener = onValue(ref(db, `status/${user.uid}`), (snap) => {
+                const st = snap.val();
+                const el = document.getElementById('chat-header-status');
+                if (st && st.state === 'online') {
+                    el.textContent = 'Online'; el.style.color = '#00e676';
+                } else if (st && st.last_changed) {
+                    const date = new Date(st.last_changed);
+                    el.textContent = `Last seen ${date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`;
+                    el.style.color = 'var(--text-muted)';
                 } else {
-                    content = msg.text;
+                    el.textContent = 'Offline'; el.style.color = 'var(--text-muted)';
+                }
+            });
+
+            // Messages
+            onValue(ref(db, `messages/${currentChatId}`), (snap) => {
+                const container = document.getElementById('chat-messages');
+                container.innerHTML = "";
+                
+                if(!snap.exists()){
+                    container.innerHTML = "<div style='text-align:center; color:#555; margin-top:20px;'>No messages yet.<br>Say Hi! 👋</div>";
+                    return;
                 }
 
-                // Reaction Heart
-                let heartHtml = msg.liked ? `<div class="reaction-heart"><i class="fas fa-heart" style="color:red;"></i></div>` : '';
+                snap.forEach(msgSnap => {
+                    const msg = msgSnap.val();
+                    const div = document.createElement('div');
+                    div.className = `message ${msg.sender === currentUser.uid ? 'msg-me' : 'msg-other'}`;
+                    
+                    let content = msg.type === 'image' 
+                        ? `<img src="${msg.text}" class="msg-image" onclick="window.open('${msg.text}', '_blank')" onerror="this.style.display='none'">` 
+                        : msg.text;
 
-                div.innerHTML = `
-                    ${content}
-                    <span class="msg-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                    ${heartHtml}
-                `;
-                
-                // Double tap to like
-                div.addEventListener('dblclick', () => {
-                    if(!msg.liked) {
-                        update(ref(db, `messages/${currentChatId}/${msgKey}`), { liked: true });
-                    }
+                    let heartHtml = msg.liked ? `<div class="reaction-heart"><i class="fas fa-heart" style="color:red;"></i></div>` : '';
+
+                    div.innerHTML = `
+                        ${content}
+                        <span class="msg-time">${new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        ${heartHtml}
+                    `;
+                    
+                    div.addEventListener('dblclick', () => {
+                        if(!msg.liked) update(ref(db, `messages/${currentChatId}/${msgSnap.key}`), { liked: true });
+                    });
+
+                    container.appendChild(div);
                 });
-
-                container.appendChild(div);
+                setTimeout(() => { container.scrollTop = container.scrollHeight; }, 100);
             });
-            container.scrollTop = container.scrollHeight;
-        });
 
-        // Listen for typing
-        onValue(ref(db, `typing/${currentChatId}/${user.uid}`), (snap) => {
-            const isTyping = snap.val();
-            const ind = document.getElementById('typing-indicator');
-            ind.textContent = isTyping ? `${user.name} is typing...` : '';
-            // Auto hide if stuck
-            if(isTyping) {
-                 setTimeout(() => {
-                     // We don't force false here to avoid UI flickering, 
-                     // relying on the sender to clear it, but UI fade could be added here.
-                 }, 4000);
-            }
-        });
+            onValue(ref(db, `typing/${currentChatId}/${user.uid}`), (snap) => {
+                const isTyping = snap.val();
+                document.getElementById('typing-indicator').textContent = isTyping ? `${user.name} is typing...` : '';
+            });
+
+        } catch (e) {
+            console.error(e);
+            alert("Error opening chat: " + e.message);
+        }
     }
 
     document.getElementById('chat-back').addEventListener('click', () => {
@@ -829,65 +773,46 @@
         currentChatUser = null;
     });
 
-    // Send Text Message
+    // Send Message
     document.getElementById('btn-send-msg').addEventListener('click', sendMessage);
     document.getElementById('chat-input').addEventListener('keypress', (e) => {
         if(e.key === 'Enter') sendMessage();
-        
-        // Typing Indicator logic
         update(ref(db, `typing/${currentChatId}/${currentUser.uid}`), { value: true });
         if(typingTimeout) clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            remove(ref(db, `typing/${currentChatId}/${currentUser.uid}`));
-        }, 3000); // 3 Seconds timeout
+        typingTimeout = setTimeout(() => { remove(ref(db, `typing/${currentChatId}/${currentUser.uid}`)); }, 3000);
     });
 
     async function sendMessage() {
         const input = document.getElementById('chat-input');
         const text = input.value.trim();
         if(!text) return;
-
         await push(ref(db, `messages/${currentChatId}`), {
-            text,
-            sender: currentUser.uid,
-            timestamp: serverTimestamp(),
-            type: 'text'
+            text, sender: currentUser.uid, timestamp: serverTimestamp(), type: 'text'
         });
         input.value = "";
     }
 
-    // Attachment Logic
-    document.getElementById('btn-attach').addEventListener('click', () => {
-        document.getElementById('chat-file-input').click();
-    });
-
+    // Attachment
+    document.getElementById('btn-attach').addEventListener('click', () => document.getElementById('chat-file-input').click());
     document.getElementById('chat-file-input').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if(!file) return;
-
-        // Visual feedback could be added here
         try {
             const url = await uploadToImgBB(file);
             await push(ref(db, `messages/${currentChatId}`), {
-                text: url,
-                sender: currentUser.uid,
-                timestamp: serverTimestamp(),
-                type: 'image'
+                text: url, sender: currentUser.uid, timestamp: serverTimestamp(), type: 'image'
             });
-        } catch(err) {
-            alert("Image upload failed");
-        }
-        e.target.value = ''; // Reset input
+        } catch(err) { alert("Image upload failed"); }
+        e.target.value = '';
     });
 
-    // --- 5. WebRTC & CALLING ---
+    // --- 5. WebRTC (Video/Audio) ---
 
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
-
-    // Drag Local Video
     let isDragging = false;
     let offset = { x: 0, y: 0 };
+    
     localVideo.addEventListener('mousedown', startDrag);
     document.addEventListener('mouseup', stopDrag);
     document.addEventListener('mousemove', drag);
@@ -906,110 +831,70 @@
         const container = document.getElementById('call-modal');
         const x = e.clientX - offset.x;
         const y = e.clientY - offset.y;
-        const maxX = container.clientWidth - localVideo.clientWidth;
-        const maxY = container.clientHeight - localVideo.clientHeight;
-        localVideo.style.left = `${Math.min(Math.max(0, x), maxX)}px`;
-        localVideo.style.top = `${Math.min(Math.max(0, y), maxY)}px`;
+        localVideo.style.left = `${Math.min(Math.max(0, x), container.clientWidth - localVideo.clientWidth)}px`;
+        localVideo.style.top = `${Math.min(Math.max(0, y), container.clientHeight - localVideo.clientHeight)}px`;
     }
 
-    // Call Logic
     document.getElementById('btn-video-call').addEventListener('click', () => startCall('video'));
     document.getElementById('btn-audio-call').addEventListener('click', () => startCall('audio'));
 
     async function startCall(type) {
         callId = currentChatId; 
         document.getElementById('call-modal').classList.add('active');
-        
-        const constraints = {
-            audio: true,
-            video: type === 'video' ? { facingMode: "user" } : false
-        };
-        
+        const constraints = { audio: true, video: type === 'video' ? { facingMode: "user" } : false };
         try {
             localStream = await navigator.mediaDevices.getUserMedia(constraints);
             localVideo.srcObject = localStream;
             localVideo.classList.toggle('hidden', type === 'audio');
-
             createPeerConnection();
             localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-
             const callData = {
-                type: 'offer',
-                sdp: offer.sdp,
-                caller: currentUser.uid,
-                callType: type,
-                timestamp: serverTimestamp()
+                type: 'offer', sdp: offer.sdp, caller: currentUser.uid, callType: type, timestamp: serverTimestamp()
             };
-            
             await remove(ref(db, `calls/${currentChatUser.uid}`));
             await set(ref(db, `calls/${currentChatUser.uid}`), callData);
-
             push(ref(db, `callLogs/${currentUser.uid}`), {
-                partner: currentChatUser.name,
-                type: 'outgoing',
-                mode: type,
-                date: serverTimestamp()
+                partner: currentChatUser.name, type: 'outgoing', mode: type, date: serverTimestamp()
             });
-
-        } catch (e) {
-            console.error("Call error:", e);
-            endCall();
-        }
+        } catch (e) { console.error(e); endCall(); }
     }
 
     function createPeerConnection() {
         peerConnection = new RTCPeerConnection(rtcConfig);
-
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
                 const targetUid = currentChatUser ? currentChatUser.uid : incomingCallData.caller;
                 push(ref(db, `calls/${targetUid}/candidates`), event.candidate.toJSON());
             }
         };
-
         peerConnection.ontrack = (event) => {
             remoteStream = event.streams[0];
             remoteVideo.srcObject = remoteStream;
         };
-
         onValue(ref(db, `calls/${currentUser.uid}/candidates`), (snap) => {
-            snap.forEach(c => {
-                const candidate = new RTCIceCandidate(c.val());
-                peerConnection.addIceCandidate(candidate).catch(e => console.error(e));
-            });
+            snap.forEach(c => peerConnection.addIceCandidate(new RTCIceCandidate(c.val())).catch(e => {}));
         });
     }
 
-    // Incoming Calls Logic
     function listenForIncomingCalls() {
         onValue(ref(db, `calls/${currentUser.uid}`), async (snap) => {
             const data = snap.val();
             if (data && data.type === 'offer') {
                 incomingCallData = data;
-                
                 const callerSnap = await get(ref(db, `users/${data.caller}`));
                 const caller = callerSnap.val();
-                
                 document.getElementById('inc-name').textContent = caller.name;
                 document.getElementById('inc-avatar').src = caller.dpUrl;
                 document.getElementById('inc-type').textContent = `Incoming ${data.callType} call...`;
                 document.getElementById('incoming-call').classList.add('active');
-
-                // Play Audio Ringtone
-                ringtoneAudio.src = getRingtone();
-                ringtoneAudio.currentTime = 0;
-                ringtoneAudio.play().catch(e => console.log("Audio play failed (interaction needed)"));
-
+                ringtoneAudio.src = getRingtone(); ringtoneAudio.currentTime = 0; ringtoneAudio.play().catch(e=>{});
             } else if (!data) {
-                // Call ended/canceled
                 document.getElementById('incoming-call').classList.remove('active');
                 ringtoneAudio.pause();
             } else if (data.type === 'answer' && peerConnection) {
-                 const answer = new RTCSessionDescription({ type: 'answer', sdp: data.sdp });
-                 await peerConnection.setRemoteDescription(answer);
+                 await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: data.sdp }));
             }
         });
     }
@@ -1017,110 +902,79 @@
     document.getElementById('btn-accept').addEventListener('click', async () => {
         document.getElementById('incoming-call').classList.remove('active');
         ringtoneAudio.pause();
-        ringtoneAudio.currentTime = 0;
-
         document.getElementById('call-modal').classList.add('active');
-
         const type = incomingCallData.callType;
-        const constraints = {
-            audio: true,
-            video: type === 'video' ? { facingMode: "user" } : false
-        };
-
+        const constraints = { audio: true, video: type === 'video' ? { facingMode: "user" } : false };
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
         localVideo.srcObject = localStream;
         localVideo.classList.toggle('hidden', type === 'audio');
-
         createPeerConnection();
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        const offer = new RTCSessionDescription({ type: 'offer', sdp: incomingCallData.sdp });
-        await peerConnection.setRemoteDescription(offer);
-
+        await peerConnection.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: incomingCallData.sdp }));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-
-        await update(ref(db, `calls/${incomingCallData.caller}`), {
-            type: 'answer',
-            sdp: answer.sdp
-        });
-        
-        push(ref(db, `callLogs/${currentUser.uid}`), {
-            partner: document.getElementById('inc-name').textContent, 
-            type: 'incoming',
-            mode: type,
-            date: serverTimestamp()
-        });
+        await update(ref(db, `calls/${incomingCallData.caller}`), { type: 'answer', sdp: answer.sdp });
+        push(ref(db, `callLogs/${currentUser.uid}`), { partner: document.getElementById('inc-name').textContent, type: 'incoming', mode: type, date: serverTimestamp() });
     });
 
     document.getElementById('btn-reject').addEventListener('click', async () => {
         ringtoneAudio.pause();
-        ringtoneAudio.currentTime = 0;
         await remove(ref(db, `calls/${currentUser.uid}`));
         document.getElementById('incoming-call').classList.remove('active');
     });
 
-    // End Call
     document.getElementById('btn-hangup').addEventListener('click', endCall);
-
     async function endCall() {
         if(localStream) localStream.getTracks().forEach(track => track.stop());
         if(peerConnection) peerConnection.close();
-        
-        peerConnection = null;
-        localStream = null;
-        
+        peerConnection = null; localStream = null;
         document.getElementById('call-modal').classList.remove('active');
-        
         if(currentChatUser) await remove(ref(db, `calls/${currentChatUser.uid}`));
         await remove(ref(db, `calls/${currentUser.uid}`));
     }
 
-    // Toggle Mic/Cam
     document.getElementById('btn-toggle-mic').addEventListener('click', function() {
-        const audioTrack = localStream.getAudioTracks()[0];
-        if(audioTrack) {
-            audioTrack.enabled = !audioTrack.enabled;
-            this.style.background = audioTrack.enabled ? '#444' : '#f44336';
-        }
+        const t = localStream.getAudioTracks()[0]; if(t) { t.enabled = !t.enabled; this.style.background = t.enabled ? '#444' : '#f44336'; }
     });
-
     document.getElementById('btn-toggle-cam').addEventListener('click', function() {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if(videoTrack) {
-            videoTrack.enabled = !videoTrack.enabled;
-            this.style.background = videoTrack.enabled ? '#444' : '#f44336';
-        }
+        const t = localStream.getVideoTracks()[0]; if(t) { t.enabled = !t.enabled; this.style.background = t.enabled ? '#444' : '#f44336'; }
     });
 
-    // Load Call Logs
+    function loadRequests() {
+        onValue(ref(db, `requests/${currentUser.uid}`), (snap) => {
+            const container = document.getElementById('tab-requests'); container.innerHTML = "";
+            document.getElementById('req-badge').textContent = snap.size;
+            document.getElementById('req-badge').classList.toggle('hidden', snap.size === 0);
+            snap.forEach(req => {
+                get(ref(db, `users/${req.val().from}`)).then(userSnap => {
+                    const u = userSnap.val();
+                    const el = document.createElement('div'); el.className = 'list-item';
+                    el.innerHTML = `<img src="${u.dpUrl}"> <div class="list-info"><div class="list-name">${u.name}</div></div>
+                    <div style="display:flex;gap:10px;"><i class="fas fa-check" id="acc-${req.key}"></i></div>`;
+                    
+                    container.appendChild(el);
+                    document.getElementById(`acc-${req.key}`).addEventListener('click', () => {
+                        window.acceptReq(req.key, req.val().from);
+                    });
+                });
+            });
+        });
+    }
+    
+    window.acceptReq = async (reqId, fromUid) => {
+        await set(ref(db, `contacts/${currentUser.uid}/${fromUid}`), true);
+        await set(ref(db, `contacts/${fromUid}/${currentUser.uid}`), true);
+        await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
+    };
+
     function loadCalls() {
         onValue(ref(db, `callLogs/${currentUser.uid}`), (snap) => {
-            const container = document.getElementById('tab-calls');
-            container.innerHTML = "";
-            if(!snap.exists()) {
-                container.innerHTML = "<p style='text-align:center; padding:20px;'>No call history</p>";
-                return;
-            }
-            const logs = [];
-            snap.forEach(c => logs.push(c.val()));
-            logs.reverse().forEach(log => {
-                const icon = log.mode === 'video' ? 'fa-video' : 'fa-phone';
-                const color = log.type === 'missed' ? 'red' : (log.type === 'incoming' ? 'green' : '#ccc');
-                const el = document.createElement('div');
-                el.className = 'list-item';
-                el.innerHTML = `
-                     <div style="width:45px; height:45px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                        <i class="fas ${icon}"></i>
-                     </div>
-                     <div class="list-info" style="margin-left:10px;">
-                        <div class="list-name">${log.partner || 'Unknown'}</div>
-                        <div class="list-sub" style="color:${color}; text-transform:capitalize;">
-                            <i class="fas fa-arrow-${log.type === 'incoming'?'down':'up'}"></i> ${log.type}
-                        </div>
-                     </div>
-                `;
-                container.appendChild(el);
+            const container = document.getElementById('tab-calls'); container.innerHTML = "";
+            snap.forEach(c => {
+                const log = c.val();
+                const el = document.createElement('div'); el.className = 'list-item';
+                el.innerHTML = `<div class="list-info"><div class="list-name">${log.partner}</div><div class="list-sub">${log.type}</div></div>`;
+                container.prepend(el);
             });
         });
     }

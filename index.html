@@ -168,10 +168,12 @@
             font-size: 0.6rem; padding: 2px 5px; border-radius: 10px;
         }
 
-        /* Chat View - FIX: Added display: flex to override hidden state */
+        /* Chat View */
         #chat-view { 
-            display: flex !important; /* FIX: Always render */
-            z-index: 30; 
+            display: flex !important;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; /* Fix for visibility */
             background: var(--background-color); 
             transform: translateX(100%); 
             transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
@@ -179,7 +181,7 @@
         #chat-view.open { transform: translateX(0); }
         
         .chat-header { display: flex; align-items: center; padding: 0 10px; height: 60px; background: var(--container-bg); }
-        .back-btn { margin-right: 10px; font-size: 1.2rem; padding: 10px; }
+        .back-btn { margin-right: 10px; font-size: 1.2rem; padding: 10px; cursor: pointer; }
         .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
         
         .message { 
@@ -209,7 +211,7 @@
         /* Call Modal */
         #call-modal {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 100; display: none; flex-direction: column;
+            background: #000; z-index: 10000; display: none; flex-direction: column;
         }
         #call-modal.active { display: flex; }
         .video-container { flex: 1; position: relative; overflow: hidden; }
@@ -236,7 +238,7 @@
         /* Incoming Call Popup */
         #incoming-call {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 200;
+            background: rgba(0,0,0,0.9); z-index: 10001;
             display: none; flex-direction: column; justify-content: center; align-items: center;
         }
         #incoming-call.active { display: flex; }
@@ -278,6 +280,15 @@
     </style>
 </head>
 <body>
+
+<!-- PWA CACHE KILLER: Unregister SW to fix stale updates -->
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) { registration.unregister(); }
+        });
+    }
+</script>
 
 <div id="app-container">
     
@@ -444,6 +455,9 @@
     let typingTimeout = null;
     let statusListener = null;
 
+    // GLOBAL CACHE FOR USERS (FIX FOR CLICK EVENTS)
+    window.usersCache = {}; 
+
     // AUDIO SYSTEM
     const DEFAULT_RINGTONE = "https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.m4a";
     let ringtoneAudio = new Audio();
@@ -451,7 +465,7 @@
 
     function getRingtone() { return localStorage.getItem('customRingtone') || DEFAULT_RINGTONE; }
 
-    // THEME SYSTEM
+    // THEME SYSTEM (Explicitly attached to window to work with onclick)
     window.setAppTheme = (color) => {
         document.documentElement.style.setProperty('--primary-color', color);
         document.documentElement.style.setProperty('--bubble-bg-me', color);
@@ -626,6 +640,16 @@
     });
 
     // --- 4. LOAD CONTACTS & CHAT ---
+    
+    // EVENT DELEGATION FOR CONTACTS (FIX FOR SCOPE ISSUE)
+    document.getElementById('tab-contacts').addEventListener('click', (e) => {
+        const item = e.target.closest('.list-item');
+        if (item && item.dataset.uid) {
+            const user = window.usersCache[item.dataset.uid];
+            if (user) openChat(user);
+        }
+    });
+
     function loadContacts() {
         const contactsRef = ref(db, `contacts/${currentUser.uid}`);
         
@@ -645,6 +669,9 @@
 
                     const userData = userSnap.val();
                     const u = { ...userData, uid: partnerUid };
+                    
+                    // Store in global cache for delegation
+                    window.usersCache[partnerUid] = u;
 
                     onValue(ref(db, `status/${partnerUid}`), (statusSnap) => {
                         const isOnline = statusSnap.val()?.state === 'online';
@@ -654,12 +681,7 @@
                             el = document.createElement('div');
                             el.id = `contact-${partnerUid}`;
                             el.className = 'list-item';
-                            
-                            // Direct JS Event Listener
-                            el.addEventListener('click', () => {
-                                openChat(u);
-                            });
-                            
+                            el.setAttribute('data-uid', partnerUid); // For Event Delegation
                             container.appendChild(el);
                         }
                         
@@ -949,23 +971,32 @@
                 get(ref(db, `users/${req.val().from}`)).then(userSnap => {
                     const u = userSnap.val();
                     const el = document.createElement('div'); el.className = 'list-item';
-                    el.innerHTML = `<img src="${u.dpUrl}"> <div class="list-info"><div class="list-name">${u.name}</div></div>
-                    <div style="display:flex;gap:10px;"><i class="fas fa-check" id="acc-${req.key}"></i></div>`;
+                    
+                    // Added data attributes for delegation
+                    el.innerHTML = `
+                        <img src="${u.dpUrl}"> 
+                        <div class="list-info"><div class="list-name">${u.name}</div></div>
+                        <div style="display:flex;gap:10px;">
+                            <i class="fas fa-check btn-accept-req" data-req-id="${req.key}" data-from-uid="${req.val().from}"></i>
+                        </div>`;
                     
                     container.appendChild(el);
-                    document.getElementById(`acc-${req.key}`).addEventListener('click', () => {
-                        window.acceptReq(req.key, req.val().from);
-                    });
                 });
             });
         });
     }
-    
-    window.acceptReq = async (reqId, fromUid) => {
-        await set(ref(db, `contacts/${currentUser.uid}/${fromUid}`), true);
-        await set(ref(db, `contacts/${fromUid}/${currentUser.uid}`), true);
-        await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
-    };
+
+    // Event Delegation for Accepting Requests
+    document.getElementById('tab-requests').addEventListener('click', async (e) => {
+        if (e.target.classList.contains('btn-accept-req')) {
+            const reqId = e.target.dataset.reqId;
+            const fromUid = e.target.dataset.fromUid;
+            
+            await set(ref(db, `contacts/${currentUser.uid}/${fromUid}`), true);
+            await set(ref(db, `contacts/${fromUid}/${currentUser.uid}`), true);
+            await remove(ref(db, `requests/${currentUser.uid}/${reqId}`));
+        }
+    });
 
     function loadCalls() {
         onValue(ref(db, `callLogs/${currentUser.uid}`), (snap) => {
